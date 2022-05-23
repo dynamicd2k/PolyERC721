@@ -1,8 +1,12 @@
 const { expect } = require('chai')
 const { deployments, ethers } = require('hardhat')
+const { keccak256 } = require('@ethersproject/keccak256')
+const { toUtf8Bytes } = require('ethers/lib/utils')
+
+const zeroAddr = 0
 
 before(async () => {
-  ;[owner, addr1, addr2, addr3, addr4, addr5] = await ethers.getSigners()
+  ;[owner, addr1, addr2, addr3, addr4, addr5, addr6, addr7, addr8, addr9, addr10] = await ethers.getSigners()
 
   // get chainId
   chainId = await ethers.provider.getNetwork().then((n) => n.chainId)
@@ -48,7 +52,7 @@ describe("Auction NFT", function(){
     })
     it("Only owner of token can set status for auction", async function(){
         await poly.mintNFT(1, addr1.address);
-        await poly.connect(addr2).startAuctionNFT(1,10);
+        await expect(poly.connect(addr2).startAuctionNFT(1,10)).to.be.revertedWith("Only owner can set NFT for auction");
     })
     it("Auction price of the NFT is set", async function(){
         await poly.mintNFT(1, addr1.address);
@@ -64,13 +68,13 @@ describe("Auction NFT", function(){
 
 describe("Stake NFT", function(){
     it("Staked NFT is set to staked mapping", async function(){
-        await poly.mintNFT(1, addr1.address);
-        await poly.connect(addr1).stakeNFT(1,100);
-        expect(await poly.isTokenStaked(1)).to.equal(true);
+        await poly.mintNFT(6, addr6.address);
+        await poly.connect(addr6).stakeNFT(6,100);
+        expect(await poly.isTokenStaked(6)).to.equal(true);
     })
     it("NFT can be staked only by owner", async function(){
         await poly.mintNFT(1, addr1.address);
-        await poly.connect(addr2).stakeNFT(1,100);
+        await expect(poly.connect(addr2).stakeNFT(1,100)).to.be.revertedWith("Only owner can stake NFT");
     })
     it("Staked NFT cannot be auctioned so auction status is set to false", async function(){
         await poly.mintNFT(2, addr2.address);
@@ -93,14 +97,14 @@ describe("Buy NFT", function(){
     })
     it("Token cannot be bought if token does not exists", async function(){
         await poly.mintNFT(1, addr1.address);
-        await poly.connect(addr1).startAuctionNFT(2,10);
-        await poly.connect(addr2).buyNFT(addr2.address,2, { value: ethers.utils.parseEther("10") });
+        await poly.connect(addr1).startAuctionNFT(1,10);
+        await expect(poly.connect(addr2).buyNFT(addr2.address,11, { value: ethers.utils.parseEther("10") })).to.be.revertedWith("ERC721Metadata: URI query for nonexistent token");
     })
     it("Token can be bought only if auction status is enabled for the token", async function(){
         await poly.mintNFT(1, addr1.address);
         await poly.connect(addr2).buyNFT(addr2.address,1, { value: ethers.utils.parseEther("10") });
     })
-    it("Token cann be bought only if token is not staked", async function(){
+    it("Token can be bought only if token is not staked", async function(){
         await poly.mintNFT(1, addr1.address);
         await poly.connect(addr1).startAuctionNFT(1,10);
         await poly.connect(addr2).buyNFT(addr2.address,1, { value: ethers.utils.parseEther("10") });
@@ -111,16 +115,16 @@ describe("Buy NFT", function(){
 describe('Sell NFT', function () {
   it('Token can be sold only if it exists', async function () {
     await poly.mintNFT(1, addr1.address)
-    await poly.connect(addr1).sellNFT(3)
+    await expect(poly.connect(addr1).sellNFT(11)).to.be.revertedWith("ERC721Metadata: URI query for nonexistent token")
   })
   it('Token can be sold only by the owner', async function () {
     await poly.mintNFT(1, addr1.address)
     await poly.connect(addr1).sellNFT(1)
     expect(await poly.ownerOfNFT(1)).to.equal(owner.address)
   })
-  it('Token cannot be sold only by non owner', async function () {
+  it('Token cannot be sold by non owner', async function () {
     await poly.mintNFT(1, addr1.address)
-    await poly.connect(addr2).sellNFT(1)
+    await expect(poly.connect(addr2).sellNFT(1)).to.be.revertedWith("Only token owner can sell the NFT")
   })
   it('Token owner changes to contract owner once the token is sold', async function () {
     await poly.mintNFT(1, addr1.address)
@@ -129,81 +133,102 @@ describe('Sell NFT', function () {
   })
 })
 
-// describe("Transfer", function(){
-//     it("Transfer should send token from owner to receiver", async function(){
-//         await poly.mintNFT(1, addr1.address);
-//         await poly.transferNFT(addr1.address, addr4.address, 1);
-//         expect(await poly.ownerOfNFT(1)).to.equal(addr4);
-//         expect(await poly.balanceOfNFTOwner(addr1)).to.equal(0);
-//         expect(await poly.balanceOfNFTOwner(addr4)).to.equal(1);
-//     })
-//     it("Transfer should fail if the address does not hold any nft", async function(){
-//         const result= await poly.transferNFT(addr5, addr1, 15);
-//         console.log(result);
-//         // expect(result).to.equal("ERC721Metadata: URI query for nonexistent token");
-//     })
-//     it("Transfer should fail for a non owner transfer request initiation", async function(){
-//         const result= await poly.connect(addr2).transferNFT(addr3, addr2, 3);
-//         expect(result).to.equal("ERC721: transfer initiated from non-owner");
-//     })
+describe("Burn", function(){
+    it("Burn should send the token to address(0)", async function(){
+        await poly.mintNFT(1, addr1.address);
+        await poly.allowBurn();
+        await poly.connect(addr1).burnToken(1);
+        expect(await poly.ownerOfNFT(1)).to.not.equal(addr1.address);
+    })
+    it("After token is burn, total number of tokens should reduce by 1 ", async function(){
+        // await poly.allowBurn();
+        await poly.mintNFT(1, addr1.address);
+        const numberOfTokensBeforeBurn= await poly.getTotalTokens();
+        await poly.connect(addr1).burnToken(1);
+        expect(await poly.getTotalTokens()).to.equal(numberOfTokensBeforeBurn-1);
+    })
+    it("Only if burn is allowed, tokens are allowed to be burn", async function(){
+        await poly.mintNFT(1, addr1.address);
+        await poly.restrictBurn();
+        // expect(await poly.burnStatus()).to.equal(true);
+        await expect( poly.connect(addr1).burnToken(1)).to.be.revertedWith("Burn action is not allowed now. Please check back once contract owner allows minting");
+    })
+    it("Only owner of NFT should be allowed to burn it", async function(){
+        await poly.mintNFT(1, addr1.address);
+        await poly.allowBurn();
+        await expect( poly.connect(addr2).burnToken(1)).to.be.revertedWith("Only owner of the token can burn the tokens");
+    })
+})
 
-// })
+describe('Transfer', function () {
+  it('Transfer should send token from owner to receiver', async function () {
+    await poly.mintNFT(9, addr9.address)
+    await poly.connect(addr9).transferNFT(addr9.address, addr7.address, 9)
+    expect(await poly.ownerOfNFT(9)).to.equal(addr7.address)
+  })
+  it('Transfer should reduce token balance in senders account', async function () {
+    expect(await poly.balanceOfNFTOwner(addr9.address)).to.equal(0)
+  })
+  it('Transfer should increase token balance for receiver', async function () {
+    expect(await poly.balanceOfNFTOwner(addr7.address)).to.equal(1)
+  })
+  it('Transfer should fail if the transfer is intiated by non holder of NFT', async function () {
+    await poly.mintNFT(5, addr5.address)
+    await expect(
+      poly.connect(addr4).transferNFT(addr5.address, addr4.address, 5),
+    ).to.be.revertedWith('ERC721: transfer initiated from non-owner')
+  })
+  it('Transfer should fail for a non existent token', async function () {
+    await expect(
+      poly.connect(addr3).transferNFT(addr3.address, addr2.address, 20),
+    ).to.be.revertedWith('ERC721Metadata: URI query for nonexistent token')
+  })
+})
 
-// describe("Burn", function(){
-//     it("Burn should send the token to address(0)", async function(){
-//         await poly.mintNFT(1, addr1.address);
-//         await poly.allowBurn();
-//         await poly.connect(addr1).burnToken(1);
-//         expect(await poly.ownerOfNFT(1)).to.equal(0);
-//     })
-//     // it("Only owner of NFT should be allowed to burn it", async function(){
-//     //     await poly.mintNFT(1, addr1.address);
-//     //     await poly.connect(addr2).burnToken(1);
-//     // })
-//     // it("Only if burn is allowed, tokens are allowed to be burn", async function(){
-//     //     const result= await poly.connect(addr1).burnTokens(1);
-//     //     expect(result).to.equal("Burn action is not allowed now. Please check back once contract owner allows minting");
-//     // })
-//     // it("If burn is allowed, tokens should burn", async function(){
-//     //     await poly.connect(allowBurn());
-//     //     expect(poly._burnStatus).to.equal(true);
-//     //     const result= await poly.connect(addr1).burnTokens(1);
-//     //     expect(result).to.equal(true);
-//     // })
-// })
+describe('Permit', () => {
+    // helper to sign using (spender, tokenId, nonce) EIP 712
+    async function sign(requestData, signer) {
+        // sign Permit
+        const signature = await signer.signMessage(requestData);
+        // console.log(signature);
+        return signature;
+    }
+    function buildDigest(
+         spender,
+         tokenId,
+         nonce
+    ) {
+        const requestData=spender+tokenId+nonce;
+        const rD= ethers.utils.arrayify(requestData);
+        const diges= ethers.utils.hashMessage(rD);
+        return diges;
+    }
 
-// describe('Permit', () => {
-//     // helper to sign using (spender, tokenId, nonce, deadline) EIP 712
-//     async function sign(spender, tokenId, nonce) {
-//         const typedData = {
-//             types: {
-//                 Permit: [
-//                     { name: 'spender', type: 'address' },
-//                     { name: 'tokenId', type: 'uint256' },
-//                     { name: 'nonce', type: 'uint256' },
-//                 ],
-//             },
-//             primaryType: 'Permit',
-//             domain: {
-//                 name: await contract.name(),
-//                 version: '1',
-//                 chainId: chainId,
-//                 verifyingContract: contract.address,
-//             },
-//             message: {
-//                 spender,
-//                 tokenId,
-//                 nonce,
-//             },
-//         };
+    function recoverAddress (requestHash, signature){
+        const rA= ethers.utils.verifyMessage(requestHash, signature);
+        return rA;
+    }
 
-//         // sign Permit
-//         const signature = await deployer._signTypedData(
-//             typedData.domain,
-//             { Permit: typedData.types.Permit },
-//             typedData.message,
-//         );
-
-//         return signature;
-//     }
-// })
+    it("Permit spender only if token exists", async function(){
+        await poly.mintNFT(1, addr1.address);
+        const nonce = await poly.nonces(1);
+        const digest= await buildDigest(addr1.address, 1, nonce);
+        const signature= await sign(digest, addr1);
+        const recoveredAdd= recoverAddress(digest, signature);
+        expect(recoveredAdd).to.equal(addr1.address);
+    })
+    it("Permit only if token is held by the permit signer", async function(){
+        const nonce = await poly.nonces(1);
+        const digest= await buildDigest(addr1.address, 1, nonce);
+        const signature= await sign(digest, addr2);
+        const recoveredAdd= recoverAddress(digest, signature);
+        expect(recoveredAdd).to.not.equal(addr1.address);
+    })
+    it("Only if transaction digest is signed by correct owner of token/spender", async function(){
+        const nonce = await poly.nonces(1);
+        const digest= await buildDigest(addr2.address, 2, nonce);
+        const signature= await sign(digest, addr1);
+        const recoveredAdd= recoverAddress(digest, signature);
+        expect(recoveredAdd).to.equal(addr1.address);
+    })
+})

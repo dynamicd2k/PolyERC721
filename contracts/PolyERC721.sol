@@ -45,7 +45,6 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         _nameNFT = nftName;
         _symbolNFT = nftSymbol;
         _admin= owner;
-        totalTokens=totalTokens+1;
         startMint();
     }
 
@@ -55,7 +54,7 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         _balancesNFT[to] += 1;
         _owners[tokenId] = to;
         _tokenAuctionValue[tokenId]=1;          //Floor price of all tokens is 1ETH
-
+        totalTokens= totalTokens+1;
         emit TransferNFT(address(this), to, totalTokens);
         return true;
 
@@ -66,11 +65,10 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         address to,
         uint256 tokenId
     ) public returns(bool) {
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
-        require(ownerOfNFT(tokenId) == from, "ERC721: transfer initiated from non-owner");
+        require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
+        require(ownerOfNFT(tokenId) == msg.sender, "ERC721: transfer initiated from non-owner");
         require(to != address(0), "ERC721: transfer to the zero address");
         require(_transferStatus!= false, "Transfer of NFT is paused, check back once contract owner allows minting");
-        require(checkPermit(to, tokenId)==true, "To address not permitted to make this transaction");
 
         _balancesNFT[from] -= 1;
         _balancesNFT[to] += 1;
@@ -83,13 +81,13 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
     //Note: signature is created on the frontend by the wallet holding the private key
     //for this assignment, signature is hardcoded in test case.
     function permitSpender(uint256 tokenId, bytes memory signature) public returns(bool){
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(ownerOfNFT(tokenId)==msg.sender, "Only owner of the token can permit on the token");
-        uint256 nonce= nonces(tokenId);
+        uint8 nonce= nonces(tokenId);
         incrementNonce(tokenId);
         bytes32 digest = buildDigest(msg.sender, tokenId, nonce);
         permit(msg.sender, tokenId, signature, digest);
-        return true;
+        return checkPermit(msg.sender,tokenId);
     }
 
       /// @notice Builds the permit digest to sign
@@ -100,7 +98,7 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
     function buildDigest(
         address spender,
         uint256 tokenId,
-        uint256 nonce
+        uint8 nonce
     ) internal pure returns (bytes32) {
         return keccak256(abi.encode("\x19Ethereum Signed Message:\n32",
                 keccak256(
@@ -126,10 +124,7 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
      * @dev See {IERC721-ownerOf}.
      */
     function ownerOfNFT(uint256 tokenId) public view virtual  returns (address) {
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
-        address owner = _owners[tokenId];
-        require(owner != address(0), "ERC721: owner query for nonexistent token");
-        return owner;
+        return _owners[tokenId];
     }
 
     /**
@@ -139,6 +134,10 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return _nameNFT;
     }
 
+    function getTotalTokens() public view returns(uint256){
+        return totalTokens;
+    }
+
     /**
      * @dev See {IERC721Metadata-symbol}.
      */
@@ -146,41 +145,28 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return _symbolNFT;
     }
     
+    function burnStatus() public view returns(bool){
+        return _burnStatus;
+    }
      /**
      * @dev See {IERC721Metadata-tokenURI}.
      */
     function tokenURI(uint256 tokenId) public view virtual  returns (string memory) {
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
 
         string memory baseURI = "";
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId)) : "";
     }
     
     function burnToken(uint256 tokenId) public returns(bool){
-        require(_burnStatus!=false, "Burn action is not allowed now. Please check back once contract owner allows minting");
+        require(burnStatus()!=false, "Burn action is not allowed now. Please check back once contract owner allows minting");
         require(msg.sender== ownerOfNFT(tokenId), "Only owner of the token can burn the tokens");
-        _balancesNFT[ownerOfNFT(tokenId)]--;
+        _balancesNFT[ownerOfNFT(tokenId)]= _balancesNFT[ownerOfNFT(tokenId)]-1;
         _owners[tokenId]= address(0);
+        totalTokens= totalTokens-1;
         emit TransferNFT(owner, address(0), tokenId);
         return true;
     }
-    //  /**
-    //  * @dev Destroys `tokenId`.
-    //  * The approval is cleared when the token is burned.
-    //  *
-    //  * Requirements:
-    //  *
-    //  * - `tokenId` must exist.
-    //  *
-    //  * Emits a {Transfer} event.
-    //  */
-    // function _burn(uint256 tokenId) internal  {
-    //     _balancesNFT[ownerOfNFT(tokenId)] -= 1;
-    //     _owners[tokenId]= address(0);
-
-    //     emit TransferNFT(owner, address(0), tokenId);
-
-    // }
 
      /**
      * @dev Returns whether `tokenId` exists.
@@ -188,12 +174,12 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
      * Tokens start existing when they are minted (`_mint`),
      * and stop existing when they are burned (`_burn`).
      */
-    function _exists(uint256 tokenId) internal view virtual returns (bool) {
-        return _owners[tokenId] != address(0);
+    function _exists(uint256 tokenId) internal view virtual returns (address) {
+        return _owners[tokenId];
     }
 
     function startAuctionNFT(uint256 tokenId, uint256 value) public returns(bool){
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(ownerOfNFT(tokenId)==msg.sender, 'Only owner can set NFT for auction');
         _tokenAuctionStatus[tokenId]= true;
         _tokenAuctionValue[tokenId]= value;
@@ -201,14 +187,14 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
     }
 
     function endAuctionNFT(uint256 tokenId) public returns(bool){
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(ownerOfNFT(tokenId)==msg.sender, 'Only owner of token can end NFT auction');
         _tokenAuctionStatus[tokenId]= false;
         return true;
     }
 
     function buyNFT(address to, uint256 tokenId) public payable returns(bool){
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(msg.value >=_tokenAuctionValue[tokenId], "ERC20Metadata: Insufficient funds");
         require(_tokenAuctionStatus[tokenId]== true, "Token not available to be purchased");
         require(_staked[tokenId]== false, "Token staked, not available to be purchased");
@@ -221,10 +207,10 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
     }
 
     function sellNFT(uint256 tokenId) public payable returns(bool){
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(ownerOfNFT(tokenId)==msg.sender, "Only token owner can sell the NFT");
         require(_staked[tokenId]== false, "Token staked, not available to be sold");
-        _balancesNFT[msg.sender]--;
+        _balancesNFT[msg.sender]= _balancesNFT[msg.sender]-1;
         // address tokenOwner= ownerOfNFT(tokenId);
         _owners[tokenId]= _admin;
         // payable(address(this)).transfer(checkTokenAuctionValue(tokenId));
@@ -232,7 +218,7 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
     }
 
     function stakeNFT(uint256 tokenId, uint256 lockPeriodInDays) public returns(bool){
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(ownerOfNFT(tokenId)== msg.sender,"Only owner can stake NFT");
         require(_staked[tokenId]== false, "Token staked already");
         _tokenAuctionStatus[tokenId]= false;
@@ -242,7 +228,7 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
     }
 
     function release(uint256 tokenId) public returns(bool){
-        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(block.timestamp>=releaseTime(tokenId), "TokenTimelock: current time is before release time");
         _staked[tokenId]=false;
         return true;

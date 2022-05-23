@@ -16,52 +16,16 @@ import "hardhat/console.sol";
  abstract contract ERC721Permit {
 
     //mapping nonces to tokenid
-     mapping (uint256=>uint256) private _nonces;
+     mapping (uint256=>uint8) private _nonces;
 
     //mapping to permit addresses
      mapping (address=>mapping(uint256=>bool)) internal _permit;
-
-     //domain separator and chain id are saved immutably for cheaper access
-     //chain id is also saved to recompute domain separator in case of a fork
-
-    //  bytes32 private immutable _domainSeparator;
-    //  uint256 private immutable _domainChainId;
-
-    //  constructor(){
-    //     uint256 chainId;
-
-    //     assembly{
-    //         chainId := chainid();
-    //     }
-
-    //     _domainChainId = chainId;
-    //     _domainSeparator = _calculateDomainSeparator(chainId);
-    //  }
-
-    //  function DOMAIN_SEPARATOR() public view returns(bytes32){
-    //      uint256 chainId;
-    //      assembly{
-    //          chainId := chainid();
-    //      }
-
-    //      return (chainId == _domainChainId)?_domainSeparator: _calculateDomainSeparator(chainId);
-    //  }
-
-    //  function _calculateDomainSeparator(uint256 chainId) internal view returns (bytes32){
-    //      return keccak256(abi.encode(keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'
-    //      ),
-    //      keccak256(bytes(nameOfNFT())), //ERC721 token name
-    //      keccak256(bytes('1')),          //Version
-    //      chainId,
-    //      address(this)
-    //      ));
-    //  }
 
     /// @notice Allows to retrieve current nonce for token
     /// @param tokenId token id
     /// @return current token nonce
 
-     function nonces(uint256 tokenId) public view returns(uint256){
+     function nonces(uint256 tokenId) public view returns(uint8){
          return _nonces[tokenId];
      }
     
