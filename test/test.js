@@ -211,11 +211,7 @@ describe('Permit', () => {
 
     it("Permit spender only if token exists", async function(){
         await poly.mintNFT(1, addr1.address);
-        const nonce = await poly.nonces(1);
-        const digest= await buildDigest(addr1.address, 1, nonce);
-        const signature= await sign(digest, addr1);
-        const recoveredAdd= recoverAddress(digest, signature);
-        expect(recoveredAdd).to.equal(addr1.address);
+        await expect(await poly.nonces(10)).to.equal(0);
     })
     it("Permit only if token is held by the permit signer", async function(){
         const nonce = await poly.nonces(1);
