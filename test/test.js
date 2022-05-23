@@ -226,7 +226,7 @@ describe('Permit', () => {
     })
     it("Only if transaction digest is signed by correct owner of token/spender", async function(){
         const nonce = await poly.nonces(1);
-        const digest= await buildDigest(addr2.address, 2, nonce);
+        const digest= await buildDigest(addr1.address, 1, nonce);
         const signature= await sign(digest, addr1);
         const recoveredAdd= recoverAddress(digest, signature);
         expect(recoveredAdd).to.equal(addr1.address);
