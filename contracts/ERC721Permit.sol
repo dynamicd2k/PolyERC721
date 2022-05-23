@@ -2,9 +2,6 @@
 pragma solidity ^0.8.9;
 
 import "hardhat/console.sol";
-// import "@nomiclabs/buidler/console.sol";
-
-// import './IERC712WithPermit.sol';
 
 /**
  * @dev This implementation of Permits links the nonce to the tokenId instead of the owner
@@ -29,10 +26,11 @@ import "hardhat/console.sol";
          return _nonces[tokenId];
      }
     
-    /// @dev Anyone can call this to approve `spender`, even a third-party
+    /// @dev User can call this function to approve `spender`
     /// @param spender the actor to approve
     /// @param tokenId the token id
     /// @param signature permit
+    /// @param digest of transaction
 
     function permit(address spender, uint256 tokenId, bytes memory signature, bytes32 digest) public returns(bool){
 
@@ -70,6 +68,9 @@ import "hardhat/console.sol";
         return true;
     }
 
+    // @dev helper to check the permit status of a spender for a token
+    // @param spender to check the permit for
+    // @param tokenId for which the permit need to be checked for spender
     function checkPermit(address spender, uint256 tokenId) public view returns(bool){
         return _permit[spender][tokenId];
     }

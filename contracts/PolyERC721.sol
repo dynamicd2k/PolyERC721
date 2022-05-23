@@ -47,7 +47,11 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         _admin= owner;
         startMint();
     }
-
+    /**
+     * @dev mintNFT : function to mint NFT to to address
+     * @param tokenId - id of token to be minted.
+     * @param to - address of token receiver 
+     */
         function mintNFT(uint256 tokenId, address to) public returns(bool) {
         require(to != address(0), "ERC721: mint to the zero address not allowed");
         require(_mintStatus!= false, "Minting is paused, please check back once contract owner allows minting");
@@ -60,6 +64,12 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
 
     }
 
+    /**
+     * @dev transferNFT : function to transfer NFT to receiver
+     * @param from - address of token sender
+     * @param to - address of token receiver 
+     * @param tokenId - id of token to be transferred
+     */
         function transferNFT(
         address from,
         address to,
@@ -79,7 +89,12 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
     }
 
     //Note: signature is created on the frontend by the wallet holding the private key
-    //for this assignment, signature is hardcoded in test case.
+    //for this assignment, signature is generated in test case file using ethers.
+     /**
+     * @dev permitSpender : function to permit spender to transfer NFT
+     * @param tokenId - id of token to be pemritted
+     * @param signature - signed transaction from wallet/private key of owner of token
+     */
     function permitSpender(uint256 tokenId, bytes memory signature) public returns(bool){
         require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(ownerOfNFT(tokenId)==msg.sender, "Only owner of the token can permit on the token");
@@ -90,7 +105,7 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return checkPermit(msg.sender,tokenId);
     }
 
-      /// @notice Builds the permit digest to sign
+    /// @notice Builds the permit digest to sign
     /// @param spender the token spender
     /// @param tokenId the tokenId
     /// @param nonce the nonce to make a permit for
@@ -112,7 +127,7 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         );
     }
 
-        /**
+    /**
      * @dev See {IERC721-balanceOf}.
      */
     function balanceOfNFTOwner(address owner) public view virtual  returns (uint256) {
@@ -120,7 +135,7 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return _balancesNFT[owner];
     }
 
-        /**
+    /**
      * @dev See {IERC721-ownerOf}.
      */
     function ownerOfNFT(uint256 tokenId) public view virtual  returns (address) {
@@ -134,10 +149,6 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return _nameNFT;
     }
 
-    function getTotalTokens() public view returns(uint256){
-        return totalTokens;
-    }
-
     /**
      * @dev See {IERC721Metadata-symbol}.
      */
@@ -145,6 +156,16 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return _symbolNFT;
     }
     
+    /**
+    * @dev getTotalTokens- retrieve total number of minted tokens
+     */
+    function getTotalTokens() public view returns(uint256){
+        return totalTokens;
+    }
+
+     /**
+    * @dev burnStatus- retrieve current burn status
+     */
     function burnStatus() public view returns(bool){
         return _burnStatus;
     }
@@ -158,6 +179,10 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId)) : "";
     }
     
+    /**
+     * @dev burnToken : function to burn NFT to address(0)
+     * @param tokenId - id of token to be burned
+     */
     function burnToken(uint256 tokenId) public returns(bool){
         require(burnStatus()!=false, "Burn action is not allowed now. Please check back once contract owner allows minting");
         require(msg.sender== ownerOfNFT(tokenId), "Only owner of the token can burn the tokens");
@@ -178,6 +203,11 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return _owners[tokenId];
     }
 
+    /**
+     * @dev startAuctionNFT : function to start NFT auction
+     * @param tokenId - id of token to be auctioned
+     * @param value - auction value
+     */
     function startAuctionNFT(uint256 tokenId, uint256 value) public returns(bool){
         require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(ownerOfNFT(tokenId)==msg.sender, 'Only owner can set NFT for auction');
@@ -186,6 +216,10 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return true;
     }
 
+    /**
+     * @dev startAuctionNFT : function to end NFT auction
+     * @param tokenId - id of token to end auctioned
+     */
     function endAuctionNFT(uint256 tokenId) public returns(bool){
         require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(ownerOfNFT(tokenId)==msg.sender, 'Only owner of token can end NFT auction');
@@ -193,6 +227,11 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return true;
     }
 
+    /**
+     * @dev buyNFT : function to buy NFT
+     * @param to - address to send the NFT
+     * @param tokenId - id of token to be bought
+     */
     function buyNFT(address to, uint256 tokenId) public payable returns(bool){
         require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(msg.value >=_tokenAuctionValue[tokenId], "ERC20Metadata: Insufficient funds");
@@ -206,17 +245,24 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return true;
     }
 
+    /**
+     * @dev sellNFT : function to sell NFT
+     * @param tokenId - id of token to be sold
+     */
     function sellNFT(uint256 tokenId) public payable returns(bool){
         require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(ownerOfNFT(tokenId)==msg.sender, "Only token owner can sell the NFT");
         require(_staked[tokenId]== false, "Token staked, not available to be sold");
         _balancesNFT[msg.sender]= _balancesNFT[msg.sender]-1;
-        // address tokenOwner= ownerOfNFT(tokenId);
         _owners[tokenId]= _admin;
-        // payable(address(this)).transfer(checkTokenAuctionValue(tokenId));
         return true;
     }
 
+    /**
+     * @dev stakeNFT : function to stake NFT
+     * @param tokenId - id of token to be staked
+     * @param lockPeriodInDays- Number of days to lock the NFT
+     */
     function stakeNFT(uint256 tokenId, uint256 lockPeriodInDays) public returns(bool){
         require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(ownerOfNFT(tokenId)== msg.sender,"Only owner can stake NFT");
@@ -227,29 +273,49 @@ contract PolyERC721 is Ownable, Mintable, ERC721Permit{
         return true;
     }
 
+     /**
+     * @dev release : function to release NFT
+     * @param tokenId - id of token to be released
+     */
     function release(uint256 tokenId) public returns(bool){
         require(_exists(tokenId)!=address(0), "ERC721Metadata: URI query for nonexistent token");
         require(block.timestamp>=releaseTime(tokenId), "TokenTimelock: current time is before release time");
         _staked[tokenId]=false;
         return true;
     }
-
+    
+     /**
+     * @dev releaseTime : function to view releaseTime of NFT
+     * @param tokenId - id of token
+     */
     function releaseTime(uint256 tokenId) public view returns (uint256) {
         return _releaseTime[tokenId];
     }
 
+     /**
+     * @dev ownerOfContract : function to address of contract owner
+     */
     function ownerOfContract() public view returns(address){
         return _admin;
     }
 
+    /**
+     * @dev checkTokenAuctionValue : function to view token auction value
+     */
     function checkTokenAuctionValue(uint256 tokenId) public view returns(uint256){
         return _tokenAuctionValue[tokenId];
     }
-
+    
+    /**
+     * @dev checkTokenAuctionStatus : function to view token auction status
+     */
     function checkTokenAuctionStatus(uint256 tokenId) public view returns(bool){
         return _tokenAuctionStatus[tokenId];
     }
 
+     /**
+     * @dev isTokenStaked : function to view token staked status
+     */
     function isTokenStaked(uint256 tokenId) public view returns(bool){
         return _staked[tokenId];
     }
